@@ -1,12 +1,12 @@
 export const mapConfig = {
-  accessToken:
-    'pk.eyJ1IjoiYnJhbmR4IiwiYSI6ImNtZmR5dnFvYjAxMXIya3I5eG1rN3Nxc20ifQ.yna2pnOayMxz_3inlaHxww',
+  accessToken: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN,
   style: 'mapbox://styles/mapbox/streets-v12',
   minZoom: 2,
   defaultMapSettings: {
     container: 'map',
     style: 'mapbox://styles/mapbox/streets-v12',
-    minZoom: 2,
+    center: [17.088, -22.574],
+    zoom: 15, //starting zoom
   },
   markerColors: {
     user: '#FF0000',

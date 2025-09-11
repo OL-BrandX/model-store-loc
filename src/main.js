@@ -1,6 +1,7 @@
 import { initializeFilters } from '../filters.js'
 import { initializeListingManager } from '../ListingManager.js'
 import { MapManager } from './components/MapManager.js'
+import 'mapbox-gl-style-switcher/styles.css'
 
 console.log('Main.js script loaded - checking for Webflow...')
 
@@ -49,6 +50,10 @@ function initializeApp() {
     console.error('Error initializing app:', error)
   }
   // Initialize ListingManager
-
-  initializeListingManager()
+  try {
+    console.log('Attempting to initialize ListingManager...')
+    initializeListingManager()
+  } catch (error) {
+    console.error('Error initializing ListingManager:', error)
+  }
 }

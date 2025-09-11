@@ -1,5 +1,3 @@
-import { mapboxgl } from '../utils/mapboxgl.js'
-
 export class LocationService {
   static async getUserLocation() {
     // Default coordinates for Windhoek Central
@@ -63,22 +61,6 @@ export class LocationService {
           arrayID: index,
         },
       })),
-    }
-  }
-
-  static async fetchDirections(origin, destination) {
-    const profile = 'driving'
-    const queryUrl = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${origin.lng},${origin.lat};${destination[0]},${destination[1]}?steps=true&geometries=geojson&overview=full&annotations=distance,duration&access_token=${mapboxgl.accessToken}`
-
-    try {
-      const response = await fetch(queryUrl)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      return await response.json()
-    } catch (error) {
-      console.error('Error fetching directions:', error)
-      throw error
     }
   }
 }

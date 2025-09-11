@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "gsap": "^3.9.1",
+    "mapbox-gl-style-switcher": "^1.0.11",
     "wrangler": "^4.0.0"
   }
 }

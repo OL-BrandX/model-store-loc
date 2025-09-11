@@ -1,6 +1,12 @@
 export function initializeListingManager() {
-  setupListingPrefill()
-  textFade()
+  try {
+    console.log('Initializing ListingManager...')
+    setupListingPrefill()
+    textFade()
+    console.log('ListingManager initialized successfully')
+  } catch (error) {
+    console.error('Error initializing ListingManager:', error)
+  }
 }
 
 function setupListingPrefill() {
@@ -25,13 +31,21 @@ function textFade() {
   const textContent = document.getElementById('listings_main')
   const readMoreButton = document.getElementById('read-more-button')
 
-  readMoreButton.addEventListener('click', () => {
-    if (textContent.style.maxHeight === 'none') {
-      textContent.style.maxHeight = '50px'
-      readMoreButton.textContent = 'Read More'
-    } else {
-      textContent.style.maxHeight = 'none'
-      readMoreButton.textContent = 'Read Less'
-    }
-  })
+  // Check if both elements exist before adding event listener
+  if (textContent && readMoreButton) {
+    readMoreButton.addEventListener('click', () => {
+      if (textContent.style.maxHeight === 'none') {
+        textContent.style.maxHeight = '50px'
+        readMoreButton.textContent = 'Read More'
+      } else {
+        textContent.style.maxHeight = 'none'
+        readMoreButton.textContent = 'Read Less'
+      }
+    })
+  } else {
+    console.debug('Text fade elements not found:', {
+      textContent: !!textContent,
+      readMoreButton: !!readMoreButton,
+    })
+  }
 }
