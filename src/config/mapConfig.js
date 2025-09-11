@@ -1,6 +1,6 @@
 export const mapConfig = {
   accessToken:
-    'pk.eyJ1IjoiZGFpbHllYXRzIiwiYSI6ImNtNXo3bTQ0NDAxYW4yaXIycXIyMHV1MDUifQ.YdvOoOG92-BO5FY3KviEPA',
+    'pk.eyJ1IjoiYnJhbmR4IiwiYSI6ImNtZmR5dnFvYjAxMXIya3I5eG1rN3Nxc20ifQ.yna2pnOayMxz_3inlaHxww',
   style: 'mapbox://styles/mapbox/streets-v12',
   minZoom: 2,
   defaultMapSettings: {
