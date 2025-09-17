@@ -21,6 +21,10 @@ export class MapManager {
     this.styleManager = null
     this.searchBox = null
 
+    // Throttling for zoom hint
+    this.lastZoomHintTime = 0
+    this.zoomHintCooldown = 3000 // 3 seconds cooldown
+
     this.initializeMap()
   }
 
@@ -196,9 +200,6 @@ export class MapManager {
   async handleLocationClick(e) {
     const ID = e.features[0].properties.arrayID
 
-    // Show popup
-    this.markerManager.showPopup(e)
-
     // Update UI
     this.updateLocationUI(ID)
 
@@ -239,11 +240,74 @@ export class MapManager {
   }
 
   /**
-   * Show user feedback for zoom hint
+   * Show user feedback for zoom hint (throttled to prevent spam)
    */
   showZoomHint() {
-    // Implement UI feedback, e.g., display a tooltip near the map for a short time
-    console.log("Use Ctrl + Scroll to zoom the map.");
+    const now = Date.now();
+
+    // Check if we're still in cooldown period
+    if (now - this.lastZoomHintTime < this.zoomHintCooldown) {
+      return; // Don't show hint, still in cooldown
+    }
+
+    // Update last hint time
+    this.lastZoomHintTime = now;
+
+    // Create or get existing toast container
+    let toastContainer = document.getElementById('zoom-toast-container');
+    if (!toastContainer) {
+      toastContainer = document.createElement('div');
+      toastContainer.id = 'zoom-toast-container';
+      toastContainer.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        pointer-events: none;
+      `;
+      document.body.appendChild(toastContainer);
+    }
+
+    // Clear any existing toasts to prevent overlap
+    toastContainer.innerHTML = '';
+
+    // Create toast message
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      margin-bottom: 8px;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.3s ease;
+    `;
+    toast.textContent = 'Use Ctrl + Scroll to zoom the map';
+
+    // Add toast to container
+    toastContainer.appendChild(toast);
+
+    // Animate in
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
+    });
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-10px)';
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 3000);
   }
 
   /**

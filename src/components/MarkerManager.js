@@ -11,6 +11,7 @@ export class MarkerManager {
       type: 'FeatureCollection',
       features: [],
     }
+    this.isClickInProgress = false
     this.initializePopup()
   }
 
@@ -90,6 +91,10 @@ export class MarkerManager {
 
     // Add click event listener to the marker
     marker.getElement().addEventListener('click', () => {
+      // Hide any existing popup and prevent hover popups during click
+      this.hidePopup()
+      this.isClickInProgress = true
+
       const clickEvent = {
         features: [
           {
@@ -105,6 +110,11 @@ export class MarkerManager {
         },
       }
       this.handleMarkerClick(clickEvent)
+
+      // Reset click flag after a short delay
+      setTimeout(() => {
+        this.isClickInProgress = false
+      }, 100)
     })
   }
 
@@ -180,6 +190,11 @@ export class MarkerManager {
 
         element.addEventListener('mouseenter', () => {
           this.map.getCanvas().style.cursor = 'pointer'
+
+          // Don't show popup if a click is in progress
+          if (this.isClickInProgress) {
+            return
+          }
 
           // Create hover event for popup
           const hoverEvent = {
