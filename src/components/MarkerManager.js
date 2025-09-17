@@ -16,12 +16,8 @@ export class MarkerManager {
   }
 
   initializePopup() {
-    this.popup = new mapboxgl.Popup({
-      closeButton: false,
-      closeOnClick: false,
-      maxWidth: 'auto',
-      offset: 40,
-    })
+    // Popup functionality is disabled
+    this.popup = null
   }
 
   loadLocationData() {
@@ -72,6 +68,7 @@ export class MarkerManager {
     const el = document.createElement('div')
     el.className = 'markericon'
     el.style.backgroundImage = `url("${iconUrl}")`
+    el.style.cursor = 'pointer'
 
     // Create and add the marker to the map
     const marker = new mapboxgl.Marker({
@@ -116,6 +113,21 @@ export class MarkerManager {
         this.isClickInProgress = false
       }, 100)
     })
+
+    // Add hover event listeners directly during marker creation
+    const markerElement = marker.getElement()
+
+    if (!markerElement) {
+      return
+    }
+
+    markerElement.addEventListener('mouseenter', () => {
+      this.map.getCanvas().style.cursor = 'pointer'
+    })
+
+    markerElement.addEventListener('mouseleave', () => {
+      this.map.getCanvas().style.cursor = ''
+    })
   }
 
   handleMarkerClick(e) {
@@ -127,20 +139,15 @@ export class MarkerManager {
   }
 
   showPopup(e) {
-    const coordinates = e.features[0].geometry.coordinates.slice()
-    const description = e.features[0].properties.description
-
-    // Adjust coordinates for popup display
-    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-      coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
-    }
-
-    // Set and display the popup
-    this.popup.setLngLat(coordinates).setHTML(description).addTo(this.map)
+    // Popup display is disabled - no popups will be shown
+    return
   }
 
   hidePopup() {
-    this.popup.remove()
+    // Popup functionality is disabled
+    if (this.popup) {
+      this.popup.remove()
+    }
   }
 
   clearMapPoints() {
@@ -183,41 +190,7 @@ export class MarkerManager {
 
   // Setup event listeners for hover effects
   setupHoverEvents() {
-    this.markers
-      .filter((m) => m.type === 'location')
-      .forEach((markerData) => {
-        const element = markerData.marker.getElement()
-
-        element.addEventListener('mouseenter', () => {
-          this.map.getCanvas().style.cursor = 'pointer'
-
-          // Don't show popup if a click is in progress
-          if (this.isClickInProgress) {
-            return
-          }
-
-          // Create hover event for popup
-          const hoverEvent = {
-            features: [
-              {
-                geometry: {
-                  coordinates: markerData.location.geometry.coordinates,
-                },
-                properties: markerData.location.properties,
-              },
-            ],
-            lngLat: {
-              lng: markerData.location.geometry.coordinates[0],
-              lat: markerData.location.geometry.coordinates[1],
-            },
-          }
-          this.showPopup(hoverEvent)
-        })
-
-        element.addEventListener('mouseleave', () => {
-          this.map.getCanvas().style.cursor = ''
-          this.hidePopup()
-        })
-      })
+    // Hover events are now set up directly during marker creation
+    // This method is kept for backward compatibility but does nothing
   }
 }
