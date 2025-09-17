@@ -31,7 +31,6 @@ const currentMinute = today.getMinutes()
 function getHoursForDay(day) {
   const table = document.getElementById('opening-hours')
   if (!table) {
-    console.warn('Opening hours table not found')
     return 'Closed'
   }
   const rows = table.getElementsByTagName('tr')

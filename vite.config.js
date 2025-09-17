@@ -1,5 +1,4 @@
 import { defineConfig, loadEnv } from 'vite'
-import eslintPlugin from 'vite-plugin-eslint'
 
 // vite.config.js
 export default defineConfig(({ mode }) => {
@@ -8,11 +7,11 @@ export default defineConfig(({ mode }) => {
 
   // Validate required environment variables
   if (!env.VITE_MAPBOX_ACCESS_TOKEN) {
-    console.warn('⚠️  Warning: VITE_MAPBOX_ACCESS_TOKEN is not set. Please check your .env file.')
+    // Warning: VITE_MAPBOX_ACCESS_TOKEN is not set
   }
 
   return {
-    plugins: [eslintPlugin({ cache: false })],
+    plugins: [],
     server: {
       host: 'localhost',
       cors: '*',

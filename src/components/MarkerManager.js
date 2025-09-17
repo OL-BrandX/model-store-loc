@@ -19,7 +19,7 @@ export class MarkerManager {
       closeButton: false,
       closeOnClick: false,
       maxWidth: 'auto',
-      offset: 45,
+      offset: 40,
     })
   }
 

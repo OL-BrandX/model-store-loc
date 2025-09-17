@@ -16,9 +16,6 @@ export class MapStyleManager {
       this.map.setPaintProperty(layerId, property, value)
       return true
     }
-    console.debug(
-      `Layer ${layerId} not found, skipping paint property ${property}`
-    )
     return false
   }
 
@@ -28,19 +25,19 @@ export class MapStyleManager {
       this.map.setLayoutProperty(layerId, property, value)
       return true
     }
-    console.debug(
-      `Layer ${layerId} not found, skipping layout property ${property}`
-    )
     return false
   }
 
   applyCustomStyling() {
-    this.map.on('load', () => {
-      this.hideUnwantedLabels()
-      this.applyFadedTheme()
-      this.ensureVisibleElements()
-      this.setLighting()
-      this.addFadeOverlay()
+    // Use the proper Mapbox GL JS event for style modifications
+    this.map.on('style.load', () => {
+      // Only apply minimal modifications to preserve custom style integrity
+
+      // Optional: Only hide specific POI labels if needed
+      // this.hideUnwantedLabels()
+
+      // Don't modify background, lighting, or add overlays for custom styles
+      // This preserves the original style design
     })
   }
 
@@ -81,7 +78,15 @@ export class MapStyleManager {
 
   ensureVisibleElements() {
     // Ensure pedestrian paths and trails are visible
-    const visibleElements = ['pedestrian', 'path', 'trail', 'road-label']
+    const visibleElements = [
+      'pedestrian',
+      'path',
+      'trail',
+      'road-label',
+      'transit',
+      'poi',
+      'place',
+    ]
 
     visibleElements.forEach((elementId) => {
       // Use the safe layout property helper method
@@ -112,7 +117,7 @@ export class MapStyleManager {
           },
         })
       } catch (error) {
-        console.warn('Failed to add fade overlay:', error.message)
+        // Failed to add fade overlay
       }
     }
   }

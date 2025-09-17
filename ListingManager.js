@@ -1,11 +1,9 @@
 export function initializeListingManager() {
   try {
-    console.log('Initializing ListingManager...')
     setupListingPrefill()
     textFade()
-    console.log('ListingManager initialized successfully')
   } catch (error) {
-    console.error('Error initializing ListingManager:', error)
+    // Silent error handling
   }
 }
 
@@ -22,8 +20,6 @@ function setupListingPrefill() {
 
     // Disable the form field
     formField.disabled = true
-  } else {
-    console.warn('Could not find either the listing element or form field')
   }
 }
 
@@ -41,11 +37,6 @@ function textFade() {
         textContent.style.maxHeight = 'none'
         readMoreButton.textContent = 'Read Less'
       }
-    })
-  } else {
-    console.debug('Text fade elements not found:', {
-      textContent: !!textContent,
-      readMoreButton: !!readMoreButton,
     })
   }
 }

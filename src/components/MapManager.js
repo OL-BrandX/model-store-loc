@@ -2,7 +2,6 @@ import { MapboxStyleSwitcherControl } from 'mapbox-gl-style-switcher'
 
 import { MapStyleManager } from './MapStyleManager.js'
 import { MarkerManager } from './MarkerManager.js'
-import { SearchManager } from './SearchManager.js'
 import { mapConfig } from '../config/mapConfig.js'
 import { LocationService } from '../services/LocationService.js'
 import { UIService } from '../services/UIService.js'
@@ -18,9 +17,9 @@ export class MapManager {
     this.userLocation = null
 
     // Initialize specialized managers
-    this.searchManager = null
     this.markerManager = null
     this.styleManager = null
+    this.searchBox = null
 
     this.initializeMap()
   }
@@ -54,7 +53,6 @@ export class MapManager {
       // Setup event listeners
       this.setupEventListeners()
     } catch (error) {
-      console.error('Error initializing map:', error)
       throw error
     }
   }
@@ -73,7 +71,6 @@ export class MapManager {
    * Initialize all specialized managers
    */
   initializeManagers() {
-    this.searchManager = new SearchManager(this.map)
     this.markerManager = new MarkerManager(this.map)
     this.styleManager = new MapStyleManager(this.map)
 
@@ -81,7 +78,7 @@ export class MapManager {
     this.styleManager.applyCustomStyling()
 
     // Initialize search functionality
-    this.searchManager.initialize()
+    this.initializeSearchBox()
   }
 
   /**
@@ -115,15 +112,36 @@ export class MapManager {
    * Setup all event listeners
    */
   setupEventListeners() {
+    this.map.on('style.load', () => {
+      // Style loaded successfully
+    })
+
     // Wait for map to load before setting up location-based features
     this.map.on('load', () => {
       this.initializeUserLocation()
+    })
+
+    // Add error handling for style loading issues
+    this.map.on('error', (e) => {
+      // Map error occurred
     })
 
     // Listen for marker clicks
     document.addEventListener('markerClick', (e) => {
       this.handleLocationClick(e.detail)
     })
+
+    // Setup controlled scroll zoom behavior
+    this.map.on('wheel', (event) => {
+      const originalEvent = event.originalEvent;
+      if (originalEvent.ctrlKey || originalEvent.metaKey || originalEvent.altKey) {
+        this.map.scrollZoom.enable();
+      } else {
+        this.map.scrollZoom.disable();
+        // Show user feedback about using Ctrl+scroll to zoom
+        this.showZoomHint();
+      }
+    });
 
     // Setup UI event listeners
     UIService.setupEventListeners()
@@ -152,8 +170,6 @@ export class MapManager {
       // Setup hover events for markers
       this.markerManager.setupHoverEvents()
     } catch (error) {
-      console.warn('Error in initializeUserLocation:', error)
-
       // Fallback: load map locations and setup country zoom
       this.markerManager.loadLocationData()
       this.markerManager.addMapPoints()
@@ -223,12 +239,73 @@ export class MapManager {
   }
 
   /**
+   * Show user feedback for zoom hint
+   */
+  showZoomHint() {
+    // Implement UI feedback, e.g., display a tooltip near the map for a short time
+    console.log("Use Ctrl + Scroll to zoom the map.");
+  }
+
+  /**
+   * Initialize Mapbox Search Box control
+   */
+  initializeSearchBox() {
+    // Wait for the search script to load before initializing search
+    const searchScript = document.getElementById('search-js')
+    if (searchScript) {
+      searchScript.addEventListener('load', () => {
+        this.setupSearchBox()
+      })
+      // If the script is already loaded, initialize search immediately
+      if (window.mapboxsearch) {
+        this.setupSearchBox()
+      }
+    }
+  }
+
+  /**
+   * Setup the Mapbox Search Box control
+   */
+  setupSearchBox() {
+    try {
+      if (!window.mapboxsearch) {
+        console.warn('Mapbox search not available')
+        return
+      }
+
+      this.searchBox = new window.mapboxsearch.MapboxSearchBox()
+      this.searchBox.accessToken = mapConfig.accessToken
+
+      // Configure search box options
+      this.searchBox.options = {
+        language: 'en',
+        country: 'NA',
+        proximity: [17.080, -22.570], // Windhoek coordinates [lng, lat]
+        limit: 5,
+      }
+
+      // Configure map integration
+      this.searchBox.mapboxgl = mapboxgl
+      this.searchBox.marker = true
+      this.searchBox.flyTo = true
+
+      // Bind to map
+      this.searchBox.bindMap(this.map)
+
+      // Add to map as a control
+      this.map.addControl(this.searchBox, 'top-right')
+    } catch (error) {
+      console.error('Error setting up search box:', error)
+    }
+  }
+
+  /**
    * Public API methods for external access
    */
 
   // Get managers
-  getSearchManager() {
-    return this.searchManager
+  getSearchBox() {
+    return this.searchBox
   }
 
   getMarkerManager() {

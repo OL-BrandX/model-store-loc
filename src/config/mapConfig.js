@@ -1,7 +1,8 @@
 export const mapConfig = {
   accessToken: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN,
+  // Temporarily using Mapbox Streets to test - your custom style has no layers
   style: 'mapbox://styles/mapbox/streets-v12',
-  minZoom: 2,
+  minZoom: 15,
   defaultMapSettings: {
     container: 'map',
     style: 'mapbox://styles/mapbox/streets-v12',

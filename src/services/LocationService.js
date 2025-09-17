@@ -11,7 +11,6 @@ export class LocationService {
       if ('geolocation' in navigator) {
         // Set a timeout for the geolocation request
         const timeoutId = setTimeout(() => {
-          console.log('Geolocation request timed out, using default location')
           resolve(defaultLocation)
         }, 5000)
 
@@ -26,7 +25,6 @@ export class LocationService {
           },
           (error) => {
             clearTimeout(timeoutId)
-            console.warn('Geolocation error:', error.message)
             resolve(defaultLocation)
           },
           {
@@ -36,7 +34,6 @@ export class LocationService {
           }
         )
       } else {
-        console.warn('Geolocation is not supported by this browser')
         resolve(defaultLocation)
       }
     })
