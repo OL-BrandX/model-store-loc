@@ -35,5 +35,50 @@ export class UIService {
         }
       }
     })
+
+    // Handle clicks on location list items to trigger marker logic
+    document.addEventListener('click', (e) => {
+      const listItem = e.target.closest('.collection-list-3.w-dyn-items > .w-dyn-item, .locations-map_item')
+      
+      // Avoid triggering when clicking action buttons or dropdowns inside the list item
+      if (listItem && !e.target.closest('a') && !e.target.closest('.w-dropdown-toggle')) {
+        // Find index of this item to send as arrayID
+        const locationNodes = document.querySelectorAll('#location-list > *, .collection-list-3.w-dyn-items > .w-dyn-item')
+        const arrayID = Array.from(locationNodes).indexOf(listItem)
+        
+        if (arrayID !== -1) {
+          const latInput = listItem.querySelector('#locationLatitude')
+          const lngInput = listItem.querySelector('#locationLongitude')
+          const idInput = listItem.querySelector('#locationID')
+          const descEl = listItem.querySelector('.locations-map_card')
+          
+          if (latInput && lngInput) {
+            const clickEvent = {
+              features: [
+                {
+                  geometry: {
+                    coordinates: [parseFloat(lngInput.value), parseFloat(latInput.value)],
+                  },
+                  properties: {
+                    id: idInput ? idInput.value : '',
+                    description: descEl ? descEl.innerHTML : '',
+                    arrayID: arrayID,
+                  },
+                },
+              ],
+              lngLat: {
+                lng: parseFloat(lngInput.value),
+                lat: parseFloat(latInput.value),
+              },
+            }
+            
+            const customEvent = new CustomEvent('markerClick', {
+              detail: clickEvent,
+            })
+            document.dispatchEvent(customEvent)
+          }
+        }
+      }
+    })
   }
 }

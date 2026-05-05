@@ -45,6 +45,9 @@ export class MapManager {
     this.ensureContainerDimensions(mapContainer)
 
     try {
+      // Clear container to prevent Mapbox GL warning about container not being empty
+      mapContainer.innerHTML = ''
+
       // Create map instance
       this.map = new mapboxgl.Map(mapConfig.defaultMapSettings)
 
@@ -230,10 +233,10 @@ export class MapManager {
 
     // Remove highlight from all items and highlight the selected one
     document
-      .querySelectorAll('.locations-map_item.is--show')
+      .querySelectorAll('.locations-map_item.is--show, .collection-list-3.w-dyn-items > .w-dyn-item.is--show')
       .forEach((item) => item.classList.remove('is--show'))
 
-    const locationItems = document.querySelectorAll('.locations-map_item')
+    const locationItems = document.querySelectorAll('.locations-map_item, .collection-list-3.w-dyn-items > .w-dyn-item')
     if (locationItems[locationID]) {
       locationItems[locationID].classList.add('is--show')
     }
@@ -337,7 +340,8 @@ export class MapManager {
         return
       }
 
-      this.searchBox = new window.mapboxsearch.MapboxSearchBox()
+      // Use createElement instead of new class constructor to avoid 'Illegal constructor' TypeError
+      this.searchBox = document.createElement('mapbox-search-box')
       this.searchBox.accessToken = mapConfig.accessToken
 
       // Configure search box options

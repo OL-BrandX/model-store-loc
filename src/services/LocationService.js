@@ -40,24 +40,31 @@ export class LocationService {
   }
 
   static getGeoData() {
-    const locationNodes = document.querySelectorAll('#location-list > *')
+    const locationNodes = document.querySelectorAll('#location-list > *, .collection-list-3.w-dyn-items > .w-dyn-item')
     return {
       type: 'FeatureCollection',
-      features: Array.from(locationNodes).map((location, index) => ({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [
-            parseFloat(location.querySelector('#locationLongitude').value),
-            parseFloat(location.querySelector('#locationLatitude').value),
-          ],
-        },
-        properties: {
-          id: location.querySelector('#locationID').value,
-          description: location.querySelector('.locations-map_card').innerHTML,
-          arrayID: index,
-        },
-      })),
+      features: Array.from(locationNodes).map((location, index) => {
+        const lngInput = location.querySelector('#locationLongitude')
+        const latInput = location.querySelector('#locationLatitude')
+        const idInput = location.querySelector('#locationID')
+        const cardNode = location.querySelector('.locations-map_card')
+        
+        return {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [
+              lngInput ? parseFloat(lngInput.value) : 0,
+              latInput ? parseFloat(latInput.value) : 0,
+            ],
+          },
+          properties: {
+            id: idInput ? idInput.value : '',
+            description: cardNode ? cardNode.innerHTML : '',
+            arrayID: index,
+          },
+        }
+      }),
     }
   }
 }

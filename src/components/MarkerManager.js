@@ -53,7 +53,8 @@ export class MarkerManager {
 
   createLocationMarker(location, index) {
     // Get the icon URL from the location list
-    const locationNode = document.querySelectorAll('#location-list > *')[index]
+    const locationNodes = document.querySelectorAll('#location-list > *, .collection-list-3.w-dyn-items > .w-dyn-item')
+    const locationNode = locationNodes[index]
     const iconImg = locationNode?.querySelector('.markericon img')
     const iconUrl =
       iconImg?.src ||
