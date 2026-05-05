@@ -3,181 +3,120 @@ import { MapboxStyleSwitcherControl } from 'mapbox-gl-style-switcher'
 import { MapStyleManager } from './MapStyleManager.js'
 import { MarkerManager } from './MarkerManager.js'
 import { mapConfig } from '../config/mapConfig.js'
+import { DOM, ACTIVE_CLASS, WF_STYLE_OVERRIDES } from '../config/selectors.js'
 import { LocationService } from '../services/LocationService.js'
 import { UIService } from '../services/UIService.js'
 import { mapboxgl } from '../utils/mapboxgl.js'
+import 'mapbox-gl-style-switcher/styles.css'
 
 /**
- * MapManager - Coordinates all map-related functionality
- * Now acts as a facade/coordinator for specialized managers
+ * MapManager – Coordinates all map-related functionality.
+ * Acts as a facade for MarkerManager, MapStyleManager, and UIService.
  */
 export class MapManager {
   constructor() {
     this.map = null
     this.userLocation = null
-
-    // Initialize specialized managers
     this.markerManager = null
     this.styleManager = null
     this.searchBox = null
 
-    // Throttling for zoom hint
+    // Throttle for zoom hint toast
     this.lastZoomHintTime = 0
-    this.zoomHintCooldown = 3000 // 3 seconds cooldown
+    this.zoomHintCooldown = 3000
 
     this.initializeMap()
   }
 
-  /**
-   * Initialize the main map instance and setup managers
-   */
+  // ── Initialization ────────────────────────────────────────
+
   initializeMap() {
-    // Set Mapbox access token
     mapboxgl.accessToken = mapConfig.accessToken
 
-    // Validate map container
-    const mapContainer = document.getElementById('map')
-    if (!mapContainer) {
-      throw new Error('Map container #map not found in the DOM')
-    }
+    const container = document.querySelector(DOM.MAP_CONTAINER)
+    if (!container) throw new Error('Map container #map not found')
 
-    // Ensure container has dimensions
-    this.ensureContainerDimensions(mapContainer)
+    this.ensureContainerDimensions(container)
 
     try {
-      // Clear container to prevent Mapbox GL warning about container not being empty
-      mapContainer.innerHTML = ''
-
-      // Create map instance
+      container.innerHTML = ''
       this.map = new mapboxgl.Map(mapConfig.defaultMapSettings)
-
-      // Initialize specialized managers
       this.initializeManagers()
-
-      // Setup map controls and UI
       this.setupMapControls()
-
-      // Setup event listeners
       this.setupEventListeners()
     } catch (error) {
       throw error
     }
   }
 
-  /**
-   * Ensure map container has proper dimensions
-   */
-  ensureContainerDimensions(container) {
-    if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-      container.style.width = '100%'
-      container.style.height = '100vh'
+  ensureContainerDimensions(el) {
+    if (el.offsetWidth === 0 || el.offsetHeight === 0) {
+      el.style.width = '100%'
+      el.style.height = '100vh'
     }
   }
 
-  /**
-   * Initialize all specialized managers
-   */
   initializeManagers() {
     this.markerManager = new MarkerManager(this.map)
     this.styleManager = new MapStyleManager(this.map)
-
-    // Apply custom styling
     this.styleManager.applyCustomStyling()
-
-    // Initialize search functionality
     this.initializeSearchBox()
   }
 
-  /**
-   * Setup map controls (navigation, geolocation, fullscreen)
-   */
+  // ── Controls ──────────────────────────────────────────────
+
   setupMapControls() {
-    // Share map instance with UIService
     UIService.setMapInstance(this.map)
 
-    // Add navigation controls
     this.map.addControl(new mapboxgl.NavigationControl())
-
-    // Add fullscreen control
     this.map.addControl(new mapboxgl.FullscreenControl())
-
-    // Add styleSwitcher control
     this.map.addControl(new MapboxStyleSwitcherControl())
 
-    // Add geolocation control
-    const geolocateControl = new mapboxgl.GeolocateControl({
-      positionOptions: {
-        enableHighAccuracy: true,
-      },
+    const geolocate = new mapboxgl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
       trackUserLocation: true,
       showUserHeading: true,
     })
-    this.map.addControl(geolocateControl)
+    this.map.addControl(geolocate)
   }
 
-  /**
-   * Setup all event listeners
-   */
+  // ── Event Listeners ───────────────────────────────────────
+
   setupEventListeners() {
-    this.map.on('style.load', () => {
-      // Style loaded successfully
-    })
+    this.map.on('load', () => this.initializeUserLocation())
+    this.map.on('error', () => {})
 
-    // Wait for map to load before setting up location-based features
-    this.map.on('load', () => {
-      this.initializeUserLocation()
-    })
-
-    // Add error handling for style loading issues
-    this.map.on('error', (e) => {
-      // Map error occurred
-    })
-
-    // Listen for marker clicks
+    // Central markerClick handler (from markers AND sidebar clicks)
     document.addEventListener('markerClick', (e) => {
       this.handleLocationClick(e.detail)
     })
 
-    // Setup controlled scroll zoom behavior
+    // Ctrl+scroll to zoom
     this.map.on('wheel', (event) => {
-      const originalEvent = event.originalEvent;
-      if (originalEvent.ctrlKey || originalEvent.metaKey || originalEvent.altKey) {
-        this.map.scrollZoom.enable();
+      const oe = event.originalEvent
+      if (oe.ctrlKey || oe.metaKey || oe.altKey) {
+        this.map.scrollZoom.enable()
       } else {
-        this.map.scrollZoom.disable();
-        // Show user feedback about using Ctrl+scroll to zoom
-        this.showZoomHint();
+        this.map.scrollZoom.disable()
+        this.showZoomHint()
       }
-    });
+    })
 
-    // Setup UI event listeners
+    // Setup UI event listeners (sidebar clicks, close buttons)
     UIService.setupEventListeners()
   }
 
-  /**
-   * Initialize user location and map points
-   */
+  // ── User Location ─────────────────────────────────────────
+
   async initializeUserLocation() {
     try {
-      // Get user location
       this.userLocation = await LocationService.getUserLocation()
-
-      // Load and display map locations
       this.markerManager.loadLocationData()
-
-      // Fly to user location or default
       this.flyToLocation()
-
-      // Add user location marker
       this.markerManager.addUserLocationMarker(this.userLocation)
-
-      // Add map points
       this.markerManager.addMapPoints()
-
-      // Setup hover events for markers
       this.markerManager.setupHoverEvents()
-    } catch (error) {
-      // Fallback: load map locations and setup country zoom
+    } catch {
       this.markerManager.loadLocationData()
       this.markerManager.addMapPoints()
       this.markerManager.setupHoverEvents()
@@ -185,9 +124,6 @@ export class MapManager {
     }
   }
 
-  /**
-   * Fly to user location or default location
-   */
   flyToLocation() {
     this.map.flyTo({
       center: [this.userLocation.lng, this.userLocation.lat],
@@ -197,211 +133,170 @@ export class MapManager {
     })
   }
 
-  /**
-   * Handle location/marker click events
-   */
-  async handleLocationClick(e) {
-    const ID = e.features[0].properties.arrayID
+  // ── Location Click Handler ────────────────────────────────
 
-    // Update UI
-    this.updateLocationUI(ID)
+  handleLocationClick(e) {
+    const { coordinates } = e.features[0].geometry
+    const { locationId }  = e.features[0].properties
 
-    // Ease to location
-    this.map.easeTo({
-      center: e.features[0].geometry.coordinates,
-      speed: 0.5,
-      curve: 1,
-      duration: 1000,
-    })
-  }
+    // Activate the card in both sidebar and map panel
+    this.activateLocation(locationId)
 
-  /**
-   * Update UI elements when a location is selected
-   */
-  updateLocationUI(locationID) {
-    // Show location list
-    const locationList = document.getElementById('location-list')
-    if (locationList) {
-      locationList.classList.add('active')
-    }
-
-    // Show map wrapper
-    const mapWrapper = document.querySelector('.locations-map_wrapper')
-    if (mapWrapper) {
-      mapWrapper.classList.add('is--show')
-    }
-
-    // Remove highlight from all items and highlight the selected one
-    document
-      .querySelectorAll('.locations-map_item.is--show, .collection-list-3.w-dyn-items > .w-dyn-item.is--show')
-      .forEach((item) => item.classList.remove('is--show'))
-
-    const locationItems = document.querySelectorAll('.locations-map_item, .collection-list-3.w-dyn-items > .w-dyn-item')
-    if (locationItems[locationID]) {
-      locationItems[locationID].classList.add('is--show')
-    }
-  }
-
-  /**
-   * Show user feedback for zoom hint (throttled to prevent spam)
-   */
-  showZoomHint() {
-    const now = Date.now();
-
-    // Check if we're still in cooldown period
-    if (now - this.lastZoomHintTime < this.zoomHintCooldown) {
-      return; // Don't show hint, still in cooldown
-    }
-
-    // Update last hint time
-    this.lastZoomHintTime = now;
-
-    // Create or get existing toast container
-    let toastContainer = document.getElementById('zoom-toast-container');
-    if (!toastContainer) {
-      toastContainer = document.createElement('div');
-      toastContainer.id = 'zoom-toast-container';
-      toastContainer.style.cssText = `
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 1000;
-        pointer-events: none;
-      `;
-      document.body.appendChild(toastContainer);
-    }
-
-    // Clear any existing toasts to prevent overlap
-    toastContainer.innerHTML = '';
-
-    // Create toast message
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 12px 20px;
-      border-radius: 6px;
-      font-size: 14px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      margin-bottom: 8px;
-      opacity: 0;
-      transform: translateY(-10px);
-      transition: all 0.3s ease;
-    `;
-    toast.textContent = 'Use Ctrl + Scroll to zoom the map';
-
-    // Add toast to container
-    toastContainer.appendChild(toast);
-
-    // Animate in
-    requestAnimationFrame(() => {
-      toast.style.opacity = '1';
-      toast.style.transform = 'translateY(0)';
-    });
-
-    // Remove after 3 seconds
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateY(-10px)';
-      setTimeout(() => {
-        if (toast.parentNode) {
-          toast.parentNode.removeChild(toast);
-        }
-      }, 300);
-    }, 3000);
-  }
-
-  /**
-   * Initialize Mapbox Search Box control
-   */
-  initializeSearchBox() {
-    // Wait for the search script to load before initializing search
-    const searchScript = document.getElementById('search-js')
-    if (searchScript) {
-      searchScript.addEventListener('load', () => {
-        this.setupSearchBox()
+    // Fly the map to the marker
+    try {
+      this.map.flyTo({
+        center: coordinates,
+        zoom: 16,
+        speed: 1.2,
+        curve: 1.42,
+        duration: 2000,
       })
-      // If the script is already loaded, initialize search immediately
-      if (window.mapboxsearch) {
-        this.setupSearchBox()
-      }
+    } catch (err) {
+      console.error('flyTo error:', err)
     }
   }
 
+  // ── UI Activation ─────────────────────────────────────────
+
   /**
-   * Setup the Mapbox Search Box control
+   * Activate a specific location in both the sidebar and the map panel.
+   *
+   * @param {string} locationId  – The value of the hidden `#locationID`
+   *                               input (e.g. "auas-valley").
    */
+  activateLocation(locationId) {
+    if (!locationId) return
+
+    // 1. Deactivate everything first
+    UIService.deactivateAll()
+
+    // 2. Show the map-panel list container
+    const mapList = document.querySelector(DOM.MAP_PANEL_LIST)
+    if (mapList) mapList.classList.add('active')
+
+    // Use a small delay so the deactivation paint completes
+    // and Webflow IX2 doesn't fight our changes
+    setTimeout(() => {
+      // 3. Activate sidebar item
+      this.activateItemByLocationId(DOM.SIDEBAR_ITEMS, locationId)
+
+      // 4. Activate map-panel item
+      this.activateItemByLocationId(DOM.MAP_PANEL_ITEMS, locationId)
+    }, 60)
+  }
+
+  /**
+   * Find an item within `containerSelector` that contains a hidden
+   * `#locationID` input matching `locationId`, then add `is--show`
+   * to both the item and its child `.location-map_card-wrap`.
+   */
+  activateItemByLocationId(containerSelector, locationId) {
+    const items = document.querySelectorAll(containerSelector)
+
+    for (const item of items) {
+      const idInput = item.querySelector(DOM.LOCATION_ID)
+      if (!idInput || idInput.value !== locationId) continue
+
+      // Activate the list-item wrapper (.w-dyn-item / .locations-map_item)
+      item.classList.add(ACTIVE_CLASS)
+
+      // Override Webflow interaction styles that may hide the item
+      WF_STYLE_OVERRIDES.forEach((prop) => {
+        item.style.setProperty(prop, 'none', 'important')
+      })
+
+      // Activate the card-wrap inside
+      const cardWrap = item.querySelector(DOM.CARD_WRAP)
+      if (cardWrap) {
+        cardWrap.classList.add(ACTIVE_CLASS)
+      }
+
+      break // only one match per list
+    }
+  }
+
+  // ── Zoom Hint Toast ───────────────────────────────────────
+
+  showZoomHint() {
+    const now = Date.now()
+    if (now - this.lastZoomHintTime < this.zoomHintCooldown) return
+    this.lastZoomHintTime = now
+
+    let container = document.getElementById('zoom-toast-container')
+    if (!container) {
+      container = document.createElement('div')
+      container.id = 'zoom-toast-container'
+      container.style.cssText = `
+        position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+        z-index: 1000; pointer-events: none;
+      `
+      document.body.appendChild(container)
+    }
+    container.innerHTML = ''
+
+    const toast = document.createElement('div')
+    toast.style.cssText = `
+      background: rgba(0,0,0,.8); color: #fff; padding: 12px 20px;
+      border-radius: 6px; font-size: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      box-shadow: 0 4px 12px rgba(0,0,0,.15); opacity: 0;
+      transform: translateY(-10px); transition: all .3s ease;
+    `
+    toast.textContent = 'Use Ctrl + Scroll to zoom the map'
+    container.appendChild(toast)
+
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1'
+      toast.style.transform = 'translateY(0)'
+    })
+
+    setTimeout(() => {
+      toast.style.opacity = '0'
+      toast.style.transform = 'translateY(-10px)'
+      setTimeout(() => toast.remove(), 300)
+    }, 3000)
+  }
+
+  // ── Search Box ────────────────────────────────────────────
+
+  initializeSearchBox() {
+    const searchScript = document.getElementById('search-js')
+    if (!searchScript) return
+
+    searchScript.addEventListener('load', () => this.setupSearchBox())
+    if (window.mapboxsearch) this.setupSearchBox()
+  }
+
   setupSearchBox() {
     try {
-      if (!window.mapboxsearch) {
-        console.warn('Mapbox search not available')
-        return
-      }
+      if (!window.mapboxsearch) return
 
-      // Use createElement instead of new class constructor to avoid 'Illegal constructor' TypeError
       this.searchBox = document.createElement('mapbox-search-box')
       this.searchBox.accessToken = mapConfig.accessToken
-
-      // Configure search box options
       this.searchBox.options = {
         language: 'en',
         country: 'NA',
-        proximity: [17.080, -22.570], // Windhoek coordinates [lng, lat]
+        proximity: [17.080, -22.570],
         limit: 5,
       }
-
-      // Configure map integration
       this.searchBox.mapboxgl = mapboxgl
       this.searchBox.marker = true
       this.searchBox.flyTo = true
-
-      // Bind to map
       this.searchBox.bindMap(this.map)
-
-      // Add to map as a control
       this.map.addControl(this.searchBox, 'top-right')
-    } catch (error) {
-      console.error('Error setting up search box:', error)
+    } catch (err) {
+      console.error('Search box error:', err)
     }
   }
 
-  /**
-   * Public API methods for external access
-   */
+  // ── Public API ────────────────────────────────────────────
 
-  // Get managers
-  getSearchBox() {
-    return this.searchBox
-  }
+  getSearchBox()     { return this.searchBox }
+  getMarkerManager() { return this.markerManager }
+  getStyleManager()  { return this.styleManager }
+  getMap()           { return this.map }
+  getUserLocation()  { return this.userLocation }
 
-  getMarkerManager() {
-    return this.markerManager
-  }
-
-  getStyleManager() {
-    return this.styleManager
-  }
-
-  // Get map instance
-  getMap() {
-    return this.map
-  }
-
-  // Get user location
-  getUserLocation() {
-    return this.userLocation
-  }
-
-  // Cleanup methods
-
-  clearMarkers() {
-    this.markerManager.clearAllMarkers()
-  }
-
-  resetMap() {
-    this.clearMarkers()
-    this.styleManager.resetStyling()
-  }
+  clearMarkers() { this.markerManager.clearAllMarkers() }
+  resetMap()     { this.clearMarkers(); this.styleManager.resetStyling() }
 }

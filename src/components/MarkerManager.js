@@ -1,197 +1,135 @@
 import { mapConfig } from '../config/mapConfig.js'
+import { DOM, ACTIVE_CLASS } from '../config/selectors.js'
 import { LocationService } from '../services/LocationService.js'
 import { mapboxgl } from '../utils/mapboxgl.js'
 
+/**
+ * MarkerManager – Creates and manages Mapbox GL markers.
+ */
 export class MarkerManager {
   constructor(map) {
     this.map = map
     this.markers = []
-    this.popup = null
-    this.mapLocations = {
-      type: 'FeatureCollection',
-      features: [],
-    }
-    this.isClickInProgress = false
-    this.initializePopup()
+    this.mapLocations = { type: 'FeatureCollection', features: [] }
   }
 
-  initializePopup() {
-    // Popup functionality is disabled
-    this.popup = null
-  }
-
+  /** Load GeoJSON data from the DOM. */
   loadLocationData() {
     this.mapLocations = LocationService.getGeoData()
     return this.mapLocations
   }
 
+  /** Add a red marker for the user's geolocation. */
   addUserLocationMarker(userLocation) {
-    if (!userLocation.isDefault) {
-      const userMarker = new mapboxgl.Marker({
-        color: mapConfig.markerColors.user,
-      })
-        .setLngLat([userLocation.lng, userLocation.lat])
-        .addTo(this.map)
+    if (userLocation.isDefault) return
 
-      this.markers.push({
-        type: 'user',
-        marker: userMarker,
-        coordinates: [userLocation.lng, userLocation.lat],
-      })
-    }
-  }
+    const marker = new mapboxgl.Marker({ color: mapConfig.markerColors.user })
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .addTo(this.map)
 
-  addMapPoints() {
-    // Remove existing layer and source if they exist
-    this.clearMapPoints()
-
-    // Create markers for each location
-    this.mapLocations.features.forEach((location, index) => {
-      this.createLocationMarker(location, index)
+    this.markers.push({
+      type: 'user',
+      marker,
+      coordinates: [userLocation.lng, userLocation.lat],
     })
   }
 
-  createLocationMarker(location, index) {
-    // Get the icon URL from the location list
-    const locationNodes = document.querySelectorAll('#location-list > *, .collection-list-3.w-dyn-items > .w-dyn-item')
-    const locationNode = locationNodes[index]
-    const iconImg = locationNode?.querySelector('.markericon img')
+  /** Create markers for every location feature. */
+  addMapPoints() {
+    this.clearMapPoints()
+    this.mapLocations.features.forEach((feature, index) => {
+      this.createLocationMarker(feature, index)
+    })
+  }
+
+  /**
+   * Create a single Mapbox marker for a location feature.
+   * Reads the icon from the sidebar CMS item at the same index.
+   */
+  createLocationMarker(feature, index) {
+    // Resolve icon from the sidebar DOM
+    const sidebarItems = document.querySelectorAll(DOM.SIDEBAR_ITEMS)
+    const sidebarItem = sidebarItems[index]
+    const iconImg = sidebarItem?.querySelector(DOM.MARKER_ICON)
     const iconUrl =
       iconImg?.src ||
-      'https://cdn.prod.website-files.com/678d364888a0aa90f5f49e2c/678fb0a891ae9c935315e936_kitchen-utensils.svg'
+      'https://cdn.prod.website-files.com/685aa028e93063a272e237d3/68d25e1b82100a3a09d5d8cd_map-pin-food.svg'
 
-    // Skip placeholder icons
-    if (iconUrl.includes('placeholder.60f9b1840c.svg')) {
-      return
-    }
+    if (iconUrl.includes('placeholder.60f9b1840c.svg')) return
 
-    // Create marker element
+    // Build marker element
     const el = document.createElement('div')
     el.className = 'markericon'
     el.style.backgroundImage = `url("${iconUrl}")`
     el.style.cursor = 'pointer'
 
-    // Create and add the marker to the map
-    const marker = new mapboxgl.Marker({
-      element: el,
-      anchor: 'bottom',
-    })
-      .setLngLat(location.geometry.coordinates)
+    const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat(feature.geometry.coordinates)
       .addTo(this.map)
 
-    // Store marker reference
-    this.markers.push({
-      type: 'location',
-      marker: marker,
-      location: location,
-      index: index,
-    })
+    this.markers.push({ type: 'location', marker, feature, index })
 
-    // Add click event listener to the marker
-    marker.getElement().addEventListener('click', () => {
-      // Hide any existing popup and prevent hover popups during click
-      this.hidePopup()
-      this.isClickInProgress = true
+    // Click → dispatch markerClick with locationId
+    el.addEventListener('click', (e) => {
+      e.stopPropagation()
 
-      const clickEvent = {
-        features: [
-          {
-            geometry: {
-              coordinates: location.geometry.coordinates,
+      document.dispatchEvent(
+        new CustomEvent('markerClick', {
+          detail: {
+            features: [
+              {
+                geometry: { coordinates: feature.geometry.coordinates },
+                properties: feature.properties,
+              },
+            ],
+            lngLat: {
+              lng: feature.geometry.coordinates[0],
+              lat: feature.geometry.coordinates[1],
             },
-            properties: location.properties,
           },
-        ],
-        lngLat: {
-          lng: location.geometry.coordinates[0],
-          lat: location.geometry.coordinates[1],
-        },
-      }
-      this.handleMarkerClick(clickEvent)
-
-      // Reset click flag after a short delay
-      setTimeout(() => {
-        this.isClickInProgress = false
-      }, 100)
+        })
+      )
     })
 
-    // Add hover event listeners directly during marker creation
-    const markerElement = marker.getElement()
-
-    if (!markerElement) {
-      return
-    }
-
-    markerElement.addEventListener('mouseenter', () => {
+    // Cursor style on hover
+    el.addEventListener('mouseenter', () => {
       this.map.getCanvas().style.cursor = 'pointer'
     })
-
-    markerElement.addEventListener('mouseleave', () => {
+    el.addEventListener('mouseleave', () => {
       this.map.getCanvas().style.cursor = ''
     })
   }
 
-  handleMarkerClick(e) {
-    // Emit a custom event that MapManager can listen to
-    const customEvent = new CustomEvent('markerClick', {
-      detail: e,
-    })
-    document.dispatchEvent(customEvent)
-  }
-
-  showPopup(e) {
-    // Popup display is disabled - no popups will be shown
-    return
-  }
-
-  hidePopup() {
-    // Popup functionality is disabled
-    if (this.popup) {
-      this.popup.remove()
-    }
-  }
+  // ── Cleanup ────────────────────────────────────────────────
 
   clearMapPoints() {
     const layerId = mapConfig.layerSettings.id
+    if (this.map.getLayer(layerId)) this.map.removeLayer(layerId)
+    if (this.map.getSource(layerId)) this.map.removeSource(layerId)
 
-    // Remove existing layer and source if they exist
-    if (this.map.getLayer(layerId)) {
-      this.map.removeLayer(layerId)
-    }
-    if (this.map.getSource(layerId)) {
-      this.map.removeSource(layerId)
-    }
-
-    // Remove all location markers
     this.markers
       .filter((m) => m.type === 'location')
       .forEach((m) => m.marker.remove())
-
-    // Keep only user markers
     this.markers = this.markers.filter((m) => m.type === 'user')
   }
 
   clearAllMarkers() {
     this.markers.forEach((m) => m.marker.remove())
     this.markers = []
-    this.hidePopup()
   }
+
+  // ── Accessors ──────────────────────────────────────────────
 
   getLocationMarkers() {
     return this.markers.filter((m) => m.type === 'location')
   }
-
   getUserMarkers() {
     return this.markers.filter((m) => m.type === 'user')
   }
-
   getMapLocations() {
     return this.mapLocations
   }
 
-  // Setup event listeners for hover effects
-  setupHoverEvents() {
-    // Hover events are now set up directly during marker creation
-    // This method is kept for backward compatibility but does nothing
-  }
+  /** Kept for backward-compat; hover setup is done in createLocationMarker. */
+  setupHoverEvents() {}
 }

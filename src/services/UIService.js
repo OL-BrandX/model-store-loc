@@ -1,84 +1,99 @@
+import { DOM, ACTIVE_CLASS, WF_STYLE_OVERRIDES } from '../config/selectors.js'
+
+/**
+ * UIService – Global delegated event listeners for the store locator.
+ *
+ * Handles:
+ *   • Sidebar list-item clicks  → dispatch `markerClick`
+ *   • Close-block clicks        → deactivate all items
+ *   • Close-list clicks         → hide the map-panel list
+ */
 export class UIService {
   static setMapInstance(map) {
     UIService._mapInstance = map
   }
 
   static setupEventListeners() {
-    // Close location list when close button is clicked
+    // ── Close the map-panel list ──────────────────────────────
     document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('close-list')) {
-        const locationList = document.getElementById('location-list')
-        if (locationList) {
-          locationList.classList.remove('active')
-        }
+      if (e.target.closest(DOM.CLOSE_LIST)) {
+        const list = document.querySelector(DOM.MAP_PANEL_LIST)
+        if (list) list.classList.remove('active')
       }
     })
 
-    // Update close block event listener to be more robust
-    const closeBlock = document.querySelector('.close-block')
-    if (closeBlock) {
-      closeBlock.addEventListener('click', () => {
-        const wrapper = document.querySelector('.locations-map_wrapper')
-        if (wrapper) {
-          wrapper.classList.remove('is--show')
-        }
-      })
-    }
-
-    // Also handle clicks on the close icon inside close-block
+    // ── Close-block (✕ button inside a card) ─────────────────
     document.addEventListener('click', (e) => {
-      const closeIcon = e.target.closest('.close-block')
-      if (closeIcon) {
-        const wrapper = document.querySelector('.locations-map_wrapper')
-        if (wrapper) {
-          wrapper.classList.remove('is--show')
-        }
-      }
+      if (!e.target.closest(DOM.CLOSE_BLOCK)) return
+
+      e.stopPropagation()
+      UIService.deactivateAll()
     })
 
-    // Handle clicks on location list items to trigger marker logic
+    // ── Sidebar list-item click → fly to marker ──────────────
     document.addEventListener('click', (e) => {
-      const listItem = e.target.closest('.collection-list-3.w-dyn-items > .w-dyn-item, .locations-map_item')
-      
-      // Avoid triggering when clicking action buttons or dropdowns inside the list item
-      if (listItem && !e.target.closest('a') && !e.target.closest('.w-dropdown-toggle')) {
-        // Find index of this item to send as arrayID
-        const locationNodes = document.querySelectorAll('#location-list > *, .collection-list-3.w-dyn-items > .w-dyn-item')
-        const arrayID = Array.from(locationNodes).indexOf(listItem)
-        
-        if (arrayID !== -1) {
-          const latInput = listItem.querySelector('#locationLatitude')
-          const lngInput = listItem.querySelector('#locationLongitude')
-          const idInput = listItem.querySelector('#locationID')
-          const descEl = listItem.querySelector('.locations-map_card')
-          
-          if (latInput && lngInput) {
-            const clickEvent = {
-              features: [
-                {
-                  geometry: {
-                    coordinates: [parseFloat(lngInput.value), parseFloat(latInput.value)],
-                  },
-                  properties: {
-                    id: idInput ? idInput.value : '',
-                    description: descEl ? descEl.innerHTML : '',
-                    arrayID: arrayID,
-                  },
-                },
-              ],
-              lngLat: {
-                lng: parseFloat(lngInput.value),
-                lat: parseFloat(latInput.value),
-              },
-            }
-            
-            const customEvent = new CustomEvent('markerClick', {
-              detail: clickEvent,
-            })
-            document.dispatchEvent(customEvent)
-          }
-        }
-      }
+      // Walk up to the sidebar .w-dyn-item
+      const listItem = e.target.closest(DOM.SIDEBAR_ITEMS)
+      if (!listItem) return
+
+      // Allow action links, dropdowns, and close buttons to work normally
+      const isDropdown    = e.target.closest('.w-dropdown-toggle')
+      const isCloseBtn    = e.target.closest(DOM.CLOSE_BLOCK)
+      const isActionLink  = e.target.closest('a.action-block')
+      if (isDropdown || isCloseBtn || isActionLink) return
+
+      // Prevent default for any wrapping <a> tag (link-blocks)
+      const closestLink = e.target.closest('a')
+      if (closestLink) e.preventDefault()
+
+      // Read location data from the hidden inputs
+      const lat = listItem.querySelector(DOM.LATITUDE)
+      const lng = listItem.querySelector(DOM.LONGITUDE)
+      const id  = listItem.querySelector(DOM.LOCATION_ID)
+      if (!lat || !lng) return
+
+      const coords = [parseFloat(lng.value), parseFloat(lat.value)]
+      const locationId = id ? id.value : ''
+
+      // Dispatch the same event a marker click would
+      document.dispatchEvent(
+        new CustomEvent('markerClick', {
+          detail: {
+            features: [{
+              geometry: { coordinates: coords },
+              properties: { locationId },
+            }],
+            lngLat: { lng: coords[0], lat: coords[1] },
+          },
+        })
+      )
     })
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
+
+  /** Remove `is--show` from every active item + card-wrap and reset Webflow styles. */
+  static deactivateAll() {
+    // Sidebar items
+    document.querySelectorAll(`${DOM.SIDEBAR_ITEMS}.${ACTIVE_CLASS}`).forEach((el) => {
+      el.classList.remove(ACTIVE_CLASS)
+      WF_STYLE_OVERRIDES.forEach((p) => el.style.removeProperty(p))
+    })
+
+    // Sidebar card-wraps
+    document.querySelectorAll(
+      `${DOM.SIDEBAR_ITEMS} ${DOM.CARD_WRAP}.${ACTIVE_CLASS}`
+    ).forEach((el) => el.classList.remove(ACTIVE_CLASS))
+
+    // Map-panel items
+    document.querySelectorAll(`${DOM.MAP_PANEL_ITEMS}.${ACTIVE_CLASS}`).forEach((el) => {
+      el.classList.remove(ACTIVE_CLASS)
+      WF_STYLE_OVERRIDES.forEach((p) => el.style.removeProperty(p))
+    })
+
+    // Map-panel card-wraps
+    document.querySelectorAll(
+      `${DOM.MAP_PANEL_ITEMS} ${DOM.CARD_WRAP}.${ACTIVE_CLASS}`
+    ).forEach((el) => el.classList.remove(ACTIVE_CLASS))
   }
 }
